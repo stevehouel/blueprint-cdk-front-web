@@ -9,6 +9,7 @@ export interface StageEnvironment extends InfraStageProps {
 }
 
 interface PipelineStackProps extends StackProps {
+  readonly projectName: string;
   readonly selfMutating: boolean;
   readonly repositoryName: string;
   readonly branchName: string;
@@ -38,7 +39,10 @@ export class PipelineStack extends Stack {
     });
 
     for(const stage of props.stages) {
-      const infra = new InfraStage(this, stage.name, stage);
+      const infra = new InfraStage(this, stage.name, {
+        buildAccount: this.account,
+        ...stage
+      });
       // Adding Infra Stage and WebSync steps
       const webStage = pipeline.addStage(infra, {
         post: [

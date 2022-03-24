@@ -1,0 +1,11 @@
+{
+  "repositoryName": "",
+  "branchName": "main",
+  "connectionArn": "",
+  "selfMutating": true,
+  "stages": [
+    {
+      "name": "Testing"
+    }
+  ]
+}

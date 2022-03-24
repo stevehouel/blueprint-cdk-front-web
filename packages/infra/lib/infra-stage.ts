@@ -7,10 +7,6 @@ export interface InfraStageProps extends StageProps {
   readonly domainName: string;
   readonly hostedZoneId?: string;
   readonly certificateArn?: string;
-  readonly userPoolId: string;
-  readonly userPoolAppId: string;
-  readonly userPoolDomain: string;
-  readonly apiUrl: string;
 }
 
 export class InfraStage extends Stage {

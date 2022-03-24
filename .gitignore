@@ -1,8 +1,28 @@
-*.js
-!jest.config.js
-*.d.ts
-node_modules
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# CDK asset staging directory
-.cdk.staging
-cdk.out
+# dependencies
+node_modules
+/.pnp
+.pnp.js
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.vscode
+
+packages/cdk/cdk.context.json
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Parcel default cache directory
+.parcel-cache
+
+# Cypress artefacts
+cypress/reports/
+cypress/screenshots/
+cypress/videos/

@@ -24,13 +24,10 @@ import {Certificate, DnsValidatedCertificate} from 'aws-cdk-lib/aws-certificatem
 const GLOBAL_REGION = 'us-east-1';
 
 interface WebStackProps extends StackProps {
+  readonly domainName?: string;
   readonly buildAccount?: string;
-  readonly domainName: string;
   readonly hostedZoneId?: string;
   readonly certificateArn?: string;
-  readonly userPoolId: string;
-  readonly userPoolAppId: string;
-  readonly userPoolDomain: string;
 }
 
 export class WebStack extends Stack {
@@ -89,13 +86,13 @@ export class WebStack extends Stack {
     let viewerCertificate: ViewerCertificate | undefined;
     let hostedZone: IHostedZone | undefined;
 
-    if (props.certificateArn) {
+    if (props.certificateArn && props.domainName) {
       const certificate = Certificate.fromCertificateArn(this, 'CertificateImported', props.certificateArn);
       viewerCertificate = ViewerCertificate.fromAcmCertificate(certificate, {
         aliases: [ props.domainName ],
         securityPolicy: SecurityPolicyProtocol.TLS_V1_2_2019,
       });
-    } else if (props.hostedZoneId) {
+    } else if (props.hostedZoneId && props.domainName) {
       hostedZone = HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
         hostedZoneId: props.hostedZoneId,
         zoneName: props.domainName,
@@ -141,7 +138,7 @@ export class WebStack extends Stack {
       ],
     });
 
-    if (hostedZone) {
+    if (hostedZone && props.domainName) {
       new ARecord(this, 'APIAliasRecord', {
         zone: hostedZone,
         recordName: props.domainName,
@@ -171,9 +168,7 @@ export class WebStack extends Stack {
     });
 
     // ** CW Dashboard **
-    const dashboard = new Dashboard(this, 'WebDashboard', {
-      dashboardName: 'Frontend',
-    });
+    const dashboard = new Dashboard(this, 'WebDashboard', {});
 
     dashboard.addWidgets(
       new TextWidget({
