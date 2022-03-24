@@ -5,6 +5,7 @@ import { InfraStage, InfraStageProps } from './infra-stage';
 
 export interface StageEnvironment extends InfraStageProps {
   readonly name: string;
+  readonly testing: boolean;
 }
 
 interface PipelineStackProps extends StackProps {
@@ -12,7 +13,7 @@ interface PipelineStackProps extends StackProps {
   readonly repositoryName: string;
   readonly branchName: string;
   readonly connectionArn: string;
-  stages: StageEnvironment[];
+  readonly stages: StageEnvironment[];
 }
 
 export class PipelineStack extends Stack {
@@ -37,8 +38,18 @@ export class PipelineStack extends Stack {
     });
 
     for(const stage of props.stages) {
-      const infraStage = new InfraStage(this, stage.name, stage);
-      pipeline.addStage(infraStage);
+      const infra = new InfraStage(this, stage.name, stage);
+      // Adding Infra Stage and WebSync steps
+      const webStage = pipeline.addStage(infra, {
+        post: [
+
+        ]
+      });
+
+      if(stage.testing) {
+        // Adding testing step
+        webStage.addPost()
+      }
     }
   }
 }
