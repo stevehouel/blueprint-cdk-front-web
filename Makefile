@@ -33,6 +33,7 @@ web-sync:
 	aws s3 sync --cache-control "max-age=31536000" --delete packages/website/build/static s3://${BUCKET_NAME}/static
 
 synth:
+	@make build
 	@cd packages/infra && \
 	yarn cdk synth -a bin/infra.js
 	
@@ -44,6 +45,7 @@ deploy-local:
 
 deploy:
 	@make install
+	@make synth
 	@cd packages/infra && \
 	yarn cdk deploy ${PIPELINE_STACK_NAME}
 

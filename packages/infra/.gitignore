@@ -7,4 +7,3 @@ node_modules
 .cdk.staging
 cdk.out
 config/local-config.json
-config/infra-config.json
