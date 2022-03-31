@@ -34,9 +34,8 @@ export class PipelineStack extends Stack {
         'make install'
       ],
       commands: [
-        'make build',
         'make lint',
-        'make build-website',
+        'make build',
         'CI=true make test',
         'make synth'
       ],
