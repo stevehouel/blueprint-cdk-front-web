@@ -6,7 +6,7 @@ SHELL:=/bin/bash
 export REGION ?= eu-west-1
 export BUCKET_NAME ?=
 export PROJECT_NAME ?= BlueprintCdkFrontWeb
-export PIPELINE_STACK_NAME ?= $PROJECT_NAME-Pipeline
+export PIPELINE_STACK_NAME ?= ${PROJECT_NAME}-Pipeline
 export CI ?= false
 
 install:
@@ -40,12 +40,12 @@ deploy-local:
 	@make install
 	@make synth
 	@cd packages/infra && \
-	yarn cdk -a cdk.out/assembly-$PROJECT_NAME deploy \*
+	yarn cdk -a cdk.out/assembly-${PROJECT_NAME} deploy \*
 
 deploy:
 	@make install
 	@cd packages/infra && \
-	yarn cdk deploy $PIPELINE_STACK_NAME
+	yarn cdk deploy ${PIPELINE_STACK_NAME}
 
 pre-commit:
 	@echo "Running pre-commit" checks

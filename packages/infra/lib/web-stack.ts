@@ -149,7 +149,6 @@ export class WebStack extends Stack {
 
     this.distributionIdOutput = new CfnOutput(this, 'ExportDistributionId', {
       value: distribution.distributionId,
-      exportName: 'WebDistributionId',
     });
 
     this.distributionUrlOutput = new CfnOutput(this, 'ExportDistributionUrl', {
@@ -158,7 +157,6 @@ export class WebStack extends Stack {
 
     this.bucketNameOutput = new CfnOutput(this, 'ExportBucketName', {
       value: websiteBucket.bucketName,
-      exportName: 'WebBucketName',
     });
     this.bucketArnOutput = new CfnOutput(this, 'ExportBucketArn', {
       value: websiteBucket.bucketArn,
