@@ -12,7 +12,7 @@ export interface InfraStageProps extends StageProps {
 export class InfraStage extends Stage {
 
   /**
-   * The CloudFront Distribution identifier
+   * The CloudFront Distribution identifier and url
    */
   public readonly distributionIdOutput: CfnOutput;
 
@@ -23,6 +23,9 @@ export class InfraStage extends Stage {
   public readonly bucketArnOutput: CfnOutput;
   /** Canonical id of the CloudFront Origin Access Identity. */
   public readonly canonicalIdOutput: CfnOutput;
+
+  /** Websitr final URL **/
+  public readonly webUrlOutput: CfnOutput;
 
   constructor(scope: Construct, id: string, props: InfraStageProps) {
     super(scope, id, props);

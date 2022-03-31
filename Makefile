@@ -7,6 +7,7 @@ export REGION ?= eu-west-1
 export BUCKET_NAME ?=
 export PROJECT_NAME ?= BlueprintCdkFrontWeb
 export PIPELINE_STACK_NAME ?= ${PROJECT_NAME}-Pipeline
+export WEB_OUTPUT_DIR ?= packages/website/build/
 export CI ?= false
 
 install:
@@ -29,8 +30,7 @@ configure-ui:
 	sh packages/website/scripts/configure-ui.sh
 
 web-sync:
-	aws s3 sync --exclude *static/* --cache-control "no-cache" --delete packages/website/build/ s3://${BUCKET_NAME}
-	aws s3 sync --cache-control "max-age=31536000" --delete packages/website/build/static s3://${BUCKET_NAME}/static
+	aws s3 sync --delete ${WEB_OUTPUT_DIR} s3://${WEB_BUCKET_NAME}
 
 synth:
 	@make build

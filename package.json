@@ -6,11 +6,13 @@
   ],
   "scripts": {
     "bootstrap": "lerna bootstrap",
-    "build": "lerna run build",
+    "start": "cd packages/website && yarn start",
+    "build": "lerna run --parallel --no-sort build",
     "watch": "lerna run --parallel --no-sort watch",
-    "test": "CI=true lerna run --parallel --no-sort test",
-    "test:watch": "lerna run --parallel --no-sort test:watch",
-    "lint": "lerna run --parallel --no-sort lint"
+    "lint": "lerna run --parallel --no-sort lint",
+    "test": "lerna run --parallel --no-sort test",
+    "test-ui": "lerna run test-ui:$STAGE",
+    "cypress": "lerna run cypress"
   },
   "devDependencies": {
     "@types/jest": "^26.0.20",

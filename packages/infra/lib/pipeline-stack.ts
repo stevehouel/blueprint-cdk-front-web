@@ -16,6 +16,7 @@ interface PipelineStackProps extends StackProps {
   readonly repositoryName: string;
   readonly branchName: string;
   readonly connectionArn: string;
+  readonly webOutputDir: string;
   readonly stages: StageEnvironment[];
 }
 
@@ -57,14 +58,14 @@ export class PipelineStack extends Stack {
       const webStage = pipeline.addStage(infra, {
         post: [
           new CodeBuildStep('Web Sync', {
-            input: synthStep.addOutputDirectory('./'),
+            input: synthStep.addOutputDirectory(props.webOutputDir),
             envFromCfnOutputs: {
               WEB_BUCKET_NAME: infra.bucketNameOutput,
-              DISTRIBUTION_ID: infra.distributionIdOutput
+              DISTRIBUTION_ID: infra.distributionIdOutput,
             },
             commands: [
-              'make generate-config',
-              'make sync-website',
+              'make configure-ui',
+              'make web-sync',
               'make invalidate-distribution'
             ],
             rolePolicyStatements: [
@@ -93,6 +94,7 @@ export class PipelineStack extends Stack {
       if(stage.testing) {
         const policies = [];
         if(stage.testingRoleArn) {
+          // Make testing role assumable
           policies.push(new PolicyStatement({
             resources: [ stage.testingRoleArn ],
             actions: [ 'sts:assumeRole' ],
@@ -100,9 +102,12 @@ export class PipelineStack extends Stack {
         }
         // Adding testing step
         webStage.addPost(new CodeBuildStep('Functional Testing', {
-          input: synthStep.addOutputDirectory('./'),
+          input: synthStep.addOutputDirectory(props.webOutputDir),
+          envFromCfnOutputs: {
+            WEB_URL: infra.webUrlOutput
+          },
           commands: [
-            'make test-functional'
+            'make test-ui'
           ],
           rolePolicyStatements: policies
         }))
