@@ -1,11 +1,7 @@
 import {CfnOutput, Duration, Stack, StackProps} from 'aws-cdk-lib';
 import {Construct} from 'constructs';
 import {
-  CloudFrontWebDistribution,
-  OriginAccessIdentity,
-  PriceClass, SecurityPolicyProtocol,
-  ViewerCertificate,
-  ViewerProtocolPolicy
+  Distribution,SecurityPolicyProtocol,
 } from 'aws-cdk-lib/aws-cloudfront';
 import {BlockPublicAccess, Bucket, BucketEncryption} from 'aws-cdk-lib/aws-s3';
 import {AccountPrincipal} from 'aws-cdk-lib/aws-iam';
@@ -19,7 +15,8 @@ import {
 } from 'aws-cdk-lib/aws-cloudwatch';
 import {ARecord, HostedZone, IHostedZone, RecordTarget} from 'aws-cdk-lib/aws-route53';
 import {CloudFrontTarget} from 'aws-cdk-lib/aws-route53-targets';
-import {Certificate, DnsValidatedCertificate} from 'aws-cdk-lib/aws-certificatemanager';
+import {Certificate, DnsValidatedCertificate, ICertificate} from 'aws-cdk-lib/aws-certificatemanager';
+import {S3Origin} from 'aws-cdk-lib/aws-cloudfront-origins';
 
 const GLOBAL_REGION = 'us-east-1';
 
@@ -64,7 +61,6 @@ export class WebStack extends Stack {
       serverAccessLogsPrefix: 'webAccessLogsBucket/',
     });
 
-    const oai = new OriginAccessIdentity(this, 'OAI');
     const websiteBucket = new Bucket(this, 'WebBucket', {
       websiteIndexDocument: 'index.html',
       publicReadAccess: false,
@@ -76,66 +72,38 @@ export class WebStack extends Stack {
       serverAccessLogsPrefix: 'websiteBucket/',
       serverAccessLogsBucket: webAccessLogsBucket,
     });
-    websiteBucket.grantRead(oai);
 
     // Create Cross-account access policy for Web Sync
     if(props.buildAccount) {
       websiteBucket.grantReadWrite(new AccountPrincipal(props.buildAccount));
     }
 
-    let viewerCertificate: ViewerCertificate | undefined;
+    let certificate: ICertificate | undefined;
     let hostedZone: IHostedZone | undefined;
 
     if (props.certificateArn && props.domainName) {
-      const certificate = Certificate.fromCertificateArn(this, 'CertificateImported', props.certificateArn);
-      viewerCertificate = ViewerCertificate.fromAcmCertificate(certificate, {
-        aliases: [ props.domainName ],
-        securityPolicy: SecurityPolicyProtocol.TLS_V1_2_2019,
-      });
+      certificate = Certificate.fromCertificateArn(this, 'CertificateImported', props.certificateArn);
     } else if (props.hostedZoneId && props.domainName) {
       hostedZone = HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
         hostedZoneId: props.hostedZoneId,
         zoneName: props.domainName,
       });
-      const certificate = new DnsValidatedCertificate(this, 'Certificate', {
+      certificate = new DnsValidatedCertificate(this, 'Certificate', {
         domainName: props.domainName,
         hostedZone: hostedZone,
       });
-      viewerCertificate = ViewerCertificate.fromAcmCertificate(certificate, {
-        aliases: [ props.domainName ],
-        securityPolicy: SecurityPolicyProtocol.TLS_V1_2_2019,
-      });
+
     }
 
-    // Creating CloudFront distribution secured by Lambda@Edge
-    const distribution = new CloudFrontWebDistribution(this, 'WebDistribution', {
-      viewerCertificate,
-      originConfigs: [
-        {
-          s3OriginSource: {
-            s3BucketSource: websiteBucket,
-            originAccessIdentity: oai,
-          },
-          behaviors: [{
-            isDefaultBehavior: true,
-            defaultTtl: Duration.seconds(300),
-          }],
-        },
-      ],
-      priceClass: PriceClass.PRICE_CLASS_ALL,
-      viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      errorConfigurations: [
-        {
-          errorCode: 404,
-          responseCode: 200,
-          responsePagePath: '/index.html',
-        },
-        {
-          errorCode: 403,
-          responseCode: 200,
-          responsePagePath: '/index.html',
-        },
-      ],
+    // Creating CloudFront distribution
+    const distribution = new Distribution(this, 'WebDistribution', {
+      enableLogging: true,
+      defaultRootObject: "index.html",
+      defaultBehavior: {
+        origin: new S3Origin(websiteBucket) ,
+      },
+      certificate: certificate,
+      minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
     });
 
     if (hostedZone && props.domainName) {
@@ -160,9 +128,6 @@ export class WebStack extends Stack {
     });
     this.bucketArnOutput = new CfnOutput(this, 'ExportBucketArn', {
       value: websiteBucket.bucketArn,
-    });
-    this.canonicalIdOutput = new CfnOutput(this, 'CanonicalId', {
-      value: oai.cloudFrontOriginAccessIdentityS3CanonicalUserId,
     });
 
     // ** CW Dashboard **
