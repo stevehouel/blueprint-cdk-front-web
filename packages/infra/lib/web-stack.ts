@@ -1,27 +1,22 @@
 import {CfnOutput, Duration, Stack, StackProps} from 'aws-cdk-lib';
 import {Construct} from 'constructs';
 import {
-  CloudFrontWebDistribution,
+  AllowedMethods,
+  Distribution,
   OriginAccessIdentity,
-  PriceClass, SecurityPolicyProtocol,
+  PriceClass,
+  SecurityPolicyProtocol,
   ViewerCertificate,
   ViewerProtocolPolicy
 } from 'aws-cdk-lib/aws-cloudfront';
 import {BlockPublicAccess, Bucket, BucketEncryption} from 'aws-cdk-lib/aws-s3';
-import {AccountPrincipal} from 'aws-cdk-lib/aws-iam';
-import {
-  Dashboard,
-  GraphWidget,
-  GRID_WIDTH,
-  MathExpression,
-  Metric,
-  TextWidget
-} from 'aws-cdk-lib/aws-cloudwatch';
+import {Dashboard, GraphWidget, GRID_WIDTH, MathExpression, Metric, TextWidget} from 'aws-cdk-lib/aws-cloudwatch';
 import {ARecord, HostedZone, IHostedZone, RecordTarget} from 'aws-cdk-lib/aws-route53';
 import {CloudFrontTarget} from 'aws-cdk-lib/aws-route53-targets';
-import {Certificate, DnsValidatedCertificate} from 'aws-cdk-lib/aws-certificatemanager';
+import {Certificate, DnsValidatedCertificate, ICertificate} from 'aws-cdk-lib/aws-certificatemanager';
 import {BucketDeployment, Source} from 'aws-cdk-lib/aws-s3-deployment';
 import * as path from 'path';
+import {S3Origin} from 'aws-cdk-lib/aws-cloudfront-origins';
 
 const GLOBAL_REGION = 'us-east-1';
 
@@ -67,7 +62,6 @@ export class WebStack extends Stack {
       serverAccessLogsPrefix: 'webAccessLogsBucket/',
     });
 
-    const oai = new OriginAccessIdentity(this, 'OAI');
     const websiteBucket = new Bucket(this, 'WebBucket', {
       websiteIndexDocument: 'index.html',
       publicReadAccess: false,
@@ -79,68 +73,36 @@ export class WebStack extends Stack {
       serverAccessLogsPrefix: 'websiteBucket/',
       serverAccessLogsBucket: webAccessLogsBucket,
     });
-    websiteBucket.grantRead(oai);
 
-    const deployment = new BucketDeployment(this, 'DeployWebsite', {
-      sources: [Source.asset(path.join(__dirname, props.websiteOutputDir))],
-      destinationBucket: websiteBucket,
-      memoryLimit: 3000,
-      prune: false
-    });
-
-    let viewerCertificate: ViewerCertificate | undefined;
+    let certificate: ICertificate | undefined;
     let hostedZone: IHostedZone | undefined;
+    let domainNames: string[] = [];
 
     if (props.certificateArn && props.domainName) {
-      const certificate = Certificate.fromCertificateArn(this, 'CertificateImported', props.certificateArn);
-      viewerCertificate = ViewerCertificate.fromAcmCertificate(certificate, {
-        aliases: [ props.domainName ],
-        securityPolicy: SecurityPolicyProtocol.TLS_V1_2_2019,
-      });
+      certificate = Certificate.fromCertificateArn(this, 'CertificateImported', props.certificateArn);
+      domainNames.push(props.domainName);
     } else if (props.hostedZoneId && props.domainName) {
       hostedZone = HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
         hostedZoneId: props.hostedZoneId,
         zoneName: props.domainName,
       });
-      const certificate = new DnsValidatedCertificate(this, 'Certificate', {
+      certificate = new DnsValidatedCertificate(this, 'Certificate', {
         domainName: props.domainName,
         hostedZone: hostedZone,
       });
-      viewerCertificate = ViewerCertificate.fromAcmCertificate(certificate, {
-        aliases: [ props.domainName ],
-        securityPolicy: SecurityPolicyProtocol.TLS_V1_2_2019,
-      });
+      domainNames.push(props.domainName);
     }
 
-    // Creating CloudFront distribution secured by Lambda@Edge
-    const distribution = new CloudFrontWebDistribution(this, 'WebDistribution', {
-      viewerCertificate,
-      originConfigs: [
-        {
-          s3OriginSource: {
-            s3BucketSource: websiteBucket,
-            originAccessIdentity: oai,
-          },
-          behaviors: [{
-            isDefaultBehavior: true,
-            defaultTtl: Duration.seconds(300),
-          }],
-        },
-      ],
-      priceClass: PriceClass.PRICE_CLASS_ALL,
-      viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-      errorConfigurations: [
-        {
-          errorCode: 404,
-          responseCode: 200,
-          responsePagePath: '/index.html',
-        },
-        {
-          errorCode: 403,
-          responseCode: 200,
-          responsePagePath: '/index.html',
-        },
-      ],
+    // Creating CloudFront distribution
+    const distribution = new Distribution(this, 'WebDistribution', {
+      defaultBehavior: {
+        origin: new S3Origin(websiteBucket),
+        allowedMethods: AllowedMethods.ALLOW_ALL,
+        viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+      certificate: certificate,
+      domainNames: domainNames,
+      priceClass: PriceClass.PRICE_CLASS_100,
     });
 
     if (hostedZone && props.domainName) {
@@ -152,22 +114,27 @@ export class WebStack extends Stack {
       });
     }
 
-    this.distributionIdOutput = new CfnOutput(this, 'ExportDistributionId', {
+    new BucketDeployment(this, 'DeployWebsite', {
+      sources: [Source.asset(path.join(__dirname, props.websiteOutputDir))],
+      destinationBucket: websiteBucket,
+      memoryLimit: 3000,
+      prune: false,
+      distribution: distribution
+    });
+
+    this.distributionIdOutput = new CfnOutput(this, 'DistributionId', {
       value: distribution.distributionId,
     });
 
-    this.distributionUrlOutput = new CfnOutput(this, 'ExportDistributionUrl', {
+    this.distributionUrlOutput = new CfnOutput(this, 'DistributionUrl', {
       value: distribution.distributionDomainName,
     });
 
-    this.bucketNameOutput = new CfnOutput(this, 'ExportBucketName', {
+    this.bucketNameOutput = new CfnOutput(this, 'WebBucketName', {
       value: websiteBucket.bucketName,
     });
-    this.bucketArnOutput = new CfnOutput(this, 'ExportBucketArn', {
+    this.bucketArnOutput = new CfnOutput(this, 'WebBucketArn', {
       value: websiteBucket.bucketArn,
-    });
-    this.canonicalIdOutput = new CfnOutput(this, 'CanonicalId', {
-      value: oai.cloudFrontOriginAccessIdentityS3CanonicalUserId,
     });
 
     // ** CW Dashboard **

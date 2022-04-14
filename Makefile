@@ -6,7 +6,7 @@ SHELL:=/bin/bash
 export REGION ?= eu-west-1
 export BUCKET_NAME ?=
 export PROJECT_NAME ?= BlueprintCdkFrontWeb
-export PIPELINE_STACK_NAME ?= ${PROJECT_NAME}-Pipeline
+export PIPELINE_STACK ?= ${PROJECT_NAME}-Pipeline
 export WEB_OUTPUT_DIR ?= packages/website/build/
 export CI ?= false
 
@@ -45,7 +45,7 @@ deploy-local:
 
 deploy:
 	@make install
-	@make synth
+	@make build
 	@cd packages/infra && \
 	yarn cdk deploy ${PIPELINE_STACK_NAME}
 
