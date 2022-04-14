@@ -7,6 +7,7 @@ export interface InfraStageProps extends StageProps {
   readonly domainName: string;
   readonly hostedZoneId?: string;
   readonly certificateArn?: string;
+  readonly websiteOutputDir: string;
 }
 
 export class InfraStage extends Stage {
@@ -30,7 +31,7 @@ export class InfraStage extends Stage {
   constructor(scope: Construct, id: string, props: InfraStageProps) {
     super(scope, id, props);
 
-    const webStack = new WebStack(this, `${this.stageName}-Infra`, props);
+    const webStack = new WebStack(this, `${this.stageName}-WebStack`, props);
     this.distributionIdOutput = webStack.distributionIdOutput;
     this.bucketNameOutput = webStack.bucketNameOutput;
     this.bucketArnOutput = webStack.bucketArnOutput;
