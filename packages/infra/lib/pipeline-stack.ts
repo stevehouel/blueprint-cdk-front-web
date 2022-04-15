@@ -65,7 +65,6 @@ export class PipelineStack extends Stack {
             },
             commands: [
               'make configure-ui',
-              'make invalidate-distribution'
             ],
             rolePolicyStatements: [
               new PolicyStatement({
