@@ -1,4 +1,4 @@
-import {CfnOutput, Duration, Stack, StackProps} from 'aws-cdk-lib';
+import {CfnOutput, Duration, RemovalPolicy, Stack, StackProps} from 'aws-cdk-lib';
 import {Construct} from 'constructs';
 import {
   AllowedMethods,
@@ -53,6 +53,10 @@ export class WebStack extends Stack {
   constructor(scope: Construct, id: string, props: WebStackProps) {
     super(scope, id, props);
 
+    const cloudfrontOAI = new OriginAccessIdentity(this, 'cloudfront-OAI', {
+      comment: `OAI for ${this.stackName}`
+    });
+
     // S3 Access Logs Bucket for Frontend stack
     const webAccessLogsBucket = new Bucket(this, 'WebAccessLogsBucket', {
       versioned: true,
@@ -63,16 +67,15 @@ export class WebStack extends Stack {
     });
 
     const websiteBucket = new Bucket(this, 'WebBucket', {
-      websiteIndexDocument: 'index.html',
       publicReadAccess: false,
       bucketName: this.stackName.toLowerCase().concat('-web'),
-      encryption: BucketEncryption.S3_MANAGED,
       versioned: true,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       serverAccessLogsPrefix: 'websiteBucket/',
       serverAccessLogsBucket: webAccessLogsBucket,
     });
+    websiteBucket.grantRead(cloudfrontOAI);
 
     let certificate: ICertificate | undefined;
     let hostedZone: IHostedZone | undefined;
@@ -96,10 +99,20 @@ export class WebStack extends Stack {
     // Creating CloudFront distribution
     const distribution = new Distribution(this, 'WebDistribution', {
       defaultBehavior: {
-        origin: new S3Origin(websiteBucket),
-        allowedMethods: AllowedMethods.ALLOW_ALL,
+        origin: new S3Origin(websiteBucket, {originAccessIdentity: cloudfrontOAI}),
+        compress: true,
+        allowedMethods: AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         viewerProtocolPolicy: ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
+      minimumProtocolVersion: SecurityPolicyProtocol.TLS_V1_2_2021,
+      errorResponses:[
+        {
+          httpStatus: 403,
+          responseHttpStatus: 403,
+          responsePagePath: '/error.html',
+          ttl: Duration.minutes(30),
+        }
+      ],
       certificate: certificate,
       domainNames: domainNames,
       priceClass: PriceClass.PRICE_CLASS_100,
